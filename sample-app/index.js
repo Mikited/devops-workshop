@@ -17,7 +17,7 @@ const express = require("express");
 const os = require("os");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const APP_VERSION = process.env.APP_VERSION || "1.0.0";
 
 app.get("/", (req, res) => {
@@ -32,7 +32,9 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
-
+app.get("/version", (req, res) => {
+  res.json({ version: APP_VERSION });
+});
 app.get("/secret", (req, res) => {
   // In Module 07 (Vault) this value will be injected securely at runtime
   // instead of being set as a plain environment variable.
