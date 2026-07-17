@@ -58,4 +58,3 @@ if (require.main === module) {
 }
 
 module.exports = app;
-console.log('this should not be here');
