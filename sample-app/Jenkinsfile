@@ -17,12 +17,16 @@ pipeline {
         stage('Smoke Test the Image') {
             steps {
                 sh """
-                    # Spin up the app container on the shared network
-                    docker run -d --network devops-net --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
+                    # 1. Run container normally on default bridge network
+                    docker run -d --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     
-                    # Test using the container name as the domain over internal port 3000
-                    if curl -f http://smoke-${BUILD_NUMBER}:3000/health; then
+                    # 2. Extract the exact container IP address dynamically
+                    CONTAINER_IP=\$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' smoke-${BUILD_NUMBER})
+                    echo "Testing connection to container IP: \$CONTAINER_IP"
+                    
+                    # 3. Test directly against the IP address over internal port 3000
+                    if curl -f http://\$CONTAINER_IP:3000/health; then
                         echo "Smoke test passed!"
                         docker stop smoke-${BUILD_NUMBER}
                         docker rm smoke-${BUILD_NUMBER}
