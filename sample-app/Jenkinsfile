@@ -1,18 +1,23 @@
-
-        stage('Build Docker Image') {
+stage('Build Docker Image') {
             steps {
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                // Pointing directly to the workshop solution Dockerfile path
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f ../02-docker/solution/Dockerfile ."
             }
         }
 
         stage('Smoke Test the Image') {
             steps {
+                // Using try/finally directly inside the shell script protects your port
                 sh """
                     docker run -d -p 3100:3000 --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
-                    curl -f http://localhost:3100/health
-                    docker stop smoke-${BUILD_NUMBER}
-                    docker rm smoke-${BUILD_NUMBER}
+                    
+                    try {
+                        curl -f http://localhost:3100/health
+                    } finally {
+                        docker stop smoke-${BUILD_NUMBER}
+                        docker rm smoke-${BUILD_NUMBER}
+                    }
                 """
             }
         }
@@ -45,8 +50,8 @@
             echo "Pipeline failed — check the stage logs above."
         }
         always {
+            // Excellent safety net to catch leftovers if the stage crashes hard
             sh "docker rm -f smoke-${BUILD_NUMBER} || true"
         }
     }
 }
-
