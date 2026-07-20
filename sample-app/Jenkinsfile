@@ -21,7 +21,7 @@ pipeline {
                     docker run -d -p 3100:3000 --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     
-                    if curl -f http://localhost:3100/health; then
+                    if curl -f http://172.17.0.1:3100/health; then
                         echo "Smoke test passed!"
                         docker stop smoke-${BUILD_NUMBER}
                         docker rm smoke-${BUILD_NUMBER}
