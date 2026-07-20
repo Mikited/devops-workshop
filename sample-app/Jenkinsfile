@@ -17,21 +17,18 @@ pipeline {
         stage('Smoke Test the Image') {
             steps {
                 sh """
-                    # 1. Run container normally on default bridge network
+                    # 1. Start the application container
                     docker run -d --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     
-                    # 2. Extract the exact container IP address dynamically
-                    CONTAINER_IP=\$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' smoke-${BUILD_NUMBER})
-                    echo "Testing connection to container IP: \$CONTAINER_IP"
-                    
-                    # 3. Test directly against the IP address over internal port 3000
-                    if curl -f http://\$CONTAINER_IP:3000/health; then
+                    # 2. Run a temporary curl container attached directly to the app's network
+                    if docker run --rm --network container:smoke-${BUILD_NUMBER} curlimages/curl:latest -f http://localhost:3000/health; then
                         echo "Smoke test passed!"
                         docker stop smoke-${BUILD_NUMBER}
                         docker rm smoke-${BUILD_NUMBER}
                     else
-                        echo "Smoke test failed!"
+                        echo "Smoke test failed! Application logs:"
+                        docker logs smoke-${BUILD_NUMBER}
                         docker stop smoke-${BUILD_NUMBER}
                         docker rm smoke-${BUILD_NUMBER}
                         exit 1
