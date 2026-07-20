@@ -17,12 +17,12 @@ pipeline {
         stage('Smoke Test the Image') {
             steps {
                 sh """
-                    # Run using host networking so it is reachable on localhost
-                    docker run -d --network host --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
+                    # Spin up the app container on the shared network
+                    docker run -d --network devops-net --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     
-                    # Test directly on the internal app port 3000
-                    if curl -f http://localhost:3000/health; then
+                    # Test using the container name as the domain over internal port 3000
+                    if curl -f http://smoke-${BUILD_NUMBER}:3000/health; then
                         echo "Smoke test passed!"
                         docker stop smoke-${BUILD_NUMBER}
                         docker rm smoke-${BUILD_NUMBER}
