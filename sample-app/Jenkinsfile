@@ -1,23 +1,36 @@
-stage('Build Docker Image') {
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'devops-workshop-app'
+        IMAGE_TAG  = "${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Build Docker Image') {
             steps {
-                // Pointing directly to the workshop solution Dockerfile path
+                // Run from sample-app, target the Dockerfile in the solution directory
                 sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f ../02-docker/solution/Dockerfile ."
             }
         }
 
         stage('Smoke Test the Image') {
             steps {
-                // Using try/finally directly inside the shell script protects your port
+                // Spin up container, test endpoint, and clean up safely via shell logic
                 sh """
                     docker run -d -p 3100:3000 --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     
-                    try {
-                        curl -f http://localhost:3100/health
-                    } finally {
+                    if curl -f http://localhost:3100/health; then
+                        echo "Smoke test passed!"
                         docker stop smoke-${BUILD_NUMBER}
                         docker rm smoke-${BUILD_NUMBER}
-                    }
+                    else
+                        echo "Smoke test failed!"
+                        docker stop smoke-${BUILD_NUMBER}
+                        docker rm smoke-${BUILD_NUMBER}
+                        exit 1
+                    fi
                 """
             }
         }
@@ -50,7 +63,7 @@ stage('Build Docker Image') {
             echo "Pipeline failed — check the stage logs above."
         }
         always {
-            // Excellent safety net to catch leftovers if the stage crashes hard
+            // Ultimate fallback to ensure port 3100 is freed up
             sh "docker rm -f smoke-${BUILD_NUMBER} || true"
         }
     }
