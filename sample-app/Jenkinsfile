@@ -6,15 +6,24 @@ pipeline {
         IMAGE_TAG  = "${BUILD_NUMBER}"
     }
 
-    stages {
-        stage('Install and Test') {
+    stage('Install and Test') {
             steps {
                 sh """
-                    docker run --rm \
-                      -v \${WORKSPACE}:/app \
-                      -w /app/sample-app \
-                      node:20-alpine \
-                      sh -c "npm install && npm test"
+                    # 1. Create a stopped container sandbox
+                    docker create --name test-runner-${BUILD_NUMBER} -w /app node:20-alpine sh -c "npm install && npm test"
+                    
+                    # 2. Copy the application files directly into the container
+                    docker cp sample-app/. test-runner-${BUILD_NUMBER}:/app
+                    
+                    # 3. Start the container and follow its logs/exit code
+                    if docker start -a test-runner-${BUILD_NUMBER}; then
+                        echo "Tests passed!"
+                        docker rm test-runner-${BUILD_NUMBER}
+                    else
+                        echo "Tests failed!"
+                        docker rm test-runner-${BUILD_NUMBER}
+                        exit 1
+                    fi
                 """
             }
         }
