@@ -9,8 +9,8 @@ pipeline {
     stages {
         stage('Build Docker Image') {
             steps {
-                // Run from sample-app, target the Dockerfile in the solution directory
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f ../02-docker/solution/Dockerfile ."
+                // Look for the Dockerfile from the root, and target sample-app as the context
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f 02-docker/solution/Dockerfile sample-app"
             }
         }
 
