@@ -6,13 +6,15 @@ pipeline {
         IMAGE_TAG  = "${BUILD_NUMBER}"
     }
 
-    stages {
-        stage('Install and Test') {
+    stage('Install and Test') {
             steps {
+                // Run a temporary node container, mount the workspace, and execute the tests
                 sh """
-                    cd sample-app
-                    npm install
-                    npm test
+                    docker run --rm \
+                      -v ${WORKSPACE}:/app \
+                      -w /app/sample-app \
+                      node:20-alpine \
+                      sh -c "npm install && npm test"
                 """
             }
         } // Ends Install and Test stage
