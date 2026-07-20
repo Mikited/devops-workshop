@@ -5,39 +5,30 @@ pipeline {
         IMAGE_NAME = 'devops-workshop-app'
         IMAGE_TAG  = "${BUILD_NUMBER}"
     }
-stages {
+
+    stages {
         stage('Install and Test') {
             steps {
-                // Move into the app directory, install dependencies, and run the test suite
                 sh """
                     cd sample-app
                     npm install
                     npm test
                 """
             }
-        }
+        } // Ends Install and Test stage
 
         stage('Build Docker Image') {
             steps {
                 sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f 02-docker/solution/Dockerfile sample-app"
             }
-        }
-    stages {
-        stage('Build Docker Image') {
-            steps {
-                // Look for the Dockerfile from the root, and target sample-app as the context
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f 02-docker/solution/Dockerfile sample-app"
-            }
-        }
-
+        } // Ends Build Docker Image stage
+        
         stage('Smoke Test the Image') {
             steps {
                 sh """
-                    # 1. Start the application container
                     docker run -d --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     
-                    # 2. Run a temporary curl container attached directly to the app's network
                     if docker run --rm --network container:smoke-${BUILD_NUMBER} curlimages/curl:latest -f http://localhost:3000/health; then
                         echo "Smoke test passed!"
                         docker stop smoke-${BUILD_NUMBER}
@@ -51,35 +42,25 @@ stages {
                     fi
                 """
             }
-        }
+        } // Ends Smoke Test stage
 
         stage('Push Image') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'dockerhub-credentials',
-                    usernameVariable: 'DOCKERHUB_USER',
-                    passwordVariable: 'DOCKERHUB_PASS'
-                )]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh """
-                        echo "\$DOCKERHUB_PASS" | docker login -u "\$DOCKERHUB_USER" --password-stdin
-                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKERHUB_USER/${IMAGE_NAME}:${IMAGE_TAG}
-                        docker push \$DOCKERHUB_USER/${IMAGE_NAME}:${IMAGE_TAG}
+                        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
                     """
                 }
             }
-        }
-    }
+        } // Ends Push Image stage
+    } // Ends stages block
 
     post {
-        success {
-            echo "Pipeline succeeded: ${IMAGE_NAME}:${IMAGE_TAG}"
-        }
-        failure {
-            echo "Pipeline failed — check the stage logs above."
-        }
         always {
-            // Ultimate fallback to ensure port 3100 is freed up
+            // Clean up left-over smoke test containers if the build fails early
             sh "docker rm -f smoke-${BUILD_NUMBER} || true"
         }
-    }
-}
+    } // Ends post block
+} // Ends pipeline block
