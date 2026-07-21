@@ -16,7 +16,7 @@ pipeline {
                     # Copy workspace files directly into the container
                     docker cp sample-app/. test-runner-${BUILD_NUMBER}:/app
                     
-                    # Start container and follow execution
+                    # Start container and follow execution(test comment)
                     if docker start -a test-runner-${BUILD_NUMBER}; then
                         echo "Tests passed!"
                         docker rm test-runner-${BUILD_NUMBER}
