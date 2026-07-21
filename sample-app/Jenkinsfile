@@ -6,16 +6,17 @@ pipeline {
         IMAGE_TAG  = "${BUILD_NUMBER}"
     }
 
-    stage('Install and Test') {
+    stages {
+        stage('Install and Test') {
             steps {
                 sh """
-                    # 1. Create a stopped container sandbox
+                    # Create a stopped container sandbox
                     docker create --name test-runner-${BUILD_NUMBER} -w /app node:20-alpine sh -c "npm install && npm test"
                     
-                    # 2. Copy the application files directly into the container
+                    # Copy workspace files directly into the container
                     docker cp sample-app/. test-runner-${BUILD_NUMBER}:/app
                     
-                    # 3. Start the container and follow its logs/exit code
+                    # Start container and follow execution
                     if docker start -a test-runner-${BUILD_NUMBER}; then
                         echo "Tests passed!"
                         docker rm test-runner-${BUILD_NUMBER}
@@ -30,25 +31,25 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t \${IMAGE_NAME}:\${IMAGE_TAG} -f 02-docker/solution/Dockerfile sample-app"
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f 02-docker/solution/Dockerfile sample-app"
             }
         }
         
         stage('Smoke Test the Image') {
             steps {
                 sh """
-                    docker run -d --name smoke-\${BUILD_NUMBER} \${IMAGE_NAME}:\${IMAGE_TAG}
+                    docker run -d --name smoke-${BUILD_NUMBER} ${IMAGE_NAME}:${IMAGE_TAG}
                     sleep 3
                     
-                    if docker run --rm --network container:smoke-\${BUILD_NUMBER} curlimages/curl:latest -f http://localhost:3000/health; then
+                    if docker run --rm --network container:smoke-${BUILD_NUMBER} curlimages/curl:latest -f http://localhost:3000/health; then
                         echo "Smoke test passed!"
-                        docker stop smoke-\${BUILD_NUMBER}
-                        docker rm smoke-\${BUILD_NUMBER}
+                        docker stop smoke-${BUILD_NUMBER}
+                        docker rm smoke-${BUILD_NUMBER}
                     else
                         echo "Smoke test failed! Application logs:"
-                        docker logs smoke-\${BUILD_NUMBER}
-                        docker stop smoke-\${BUILD_NUMBER}
-                        docker rm smoke-\${BUILD_NUMBER}
+                        docker logs smoke-${BUILD_NUMBER}
+                        docker stop smoke-${BUILD_NUMBER}
+                        docker rm smoke-${BUILD_NUMBER}
                         exit 1
                     fi
                 """
@@ -59,9 +60,9 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
                     sh """
-                        echo "\${DOCKER_PASSWORD}" | docker login -u "\${DOCKER_USERNAME}" --password-stdin
-                        docker tag \${IMAGE_NAME}:\${IMAGE_TAG} \${DOCKER_USERNAME}/\${IMAGE_NAME}:\${IMAGE_TAG}
-                        docker push \${DOCKER_USERNAME}/\${IMAGE_NAME}:\${IMAGE_TAG}
+                        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push ${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
                     """
                 }
             }
@@ -70,7 +71,8 @@ pipeline {
 
     post {
         always {
-            sh "docker rm -f smoke-\${BUILD_NUMBER} || true"
+            sh "docker rm -f smoke-${BUILD_NUMBER} || true"
+            sh "docker rm -f test-runner-${BUILD_NUMBER} || true"
         }
     }
 }
